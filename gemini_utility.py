@@ -1,53 +1,45 @@
-from email.mime import text
 import os
 import json
+import streamlit as st
 import google.generativeai as genai
 
+# --- KONTROL API KEY (Cloud vs Local) ---
+# Cek apakah kita sedang berjalan di Streamlit Cloud (menggunakan Secrets)
+if "GOOGLE_GEMINI_API_KEY" in st.secrets:
+    GOOGLE_GEMINI_API_KEY = st.secrets["GOOGLE_GEMINI_API_KEY"]
+else:
+    # Jika tidak ada di secrets, berarti kita di laptop (Local)
+    try:
+        working_directory = os.path.dirname(os.path.abspath(__file__))
+        config_file_path = os.path.join(working_directory, "config.json")
+        with open(config_file_path) as f:
+            config_data = json.load(f)
+        GOOGLE_GEMINI_API_KEY = config_data["GOOGLE_GEMINI_API_KEY"]
+    except FileNotFoundError:
+        st.error("API Key tidak ditemukan! Pastikan config.json ada di lokal atau Secrets sudah diisi di Cloud.")
+        GOOGLE_GEMINI_API_KEY = None
 
-#get working directory
-working_directory = os.path.dirname(os.path.abspath(__file__))
+# Konfigurasi Google AI dengan API Key yang ditemukan
+if GOOGLE_GEMINI_API_KEY:
+    genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
 
-config_file_path = f"{working_directory}/config.json"
-config_data = json.load(open(config_file_path))
-
-#loading the api key
-GOOGLE_GEMINI_API_KEY = config_data["GOOGLE_GEMINI_API_KEY"]
-
-#configuratiopn google with api key
-genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
+# --- FUNGSI-FUNGSI UTAMA ---
 
 def load_gemini_pro_model():
-    gemini_pro_model = genai.GenerativeModel("gemini-2.5-flash")
-    return gemini_pro_model
+    # Menggunakan model terbaru (sesuaikan jika gemini-2.5 sudah stabil)
+    return genai.GenerativeModel("gemini-1.5-flash")
 
-#enpoint for update pip install -U google-generativeai
-
-#configuration for emmbedng
-
-# List all models that support 'embedContent'
-for m in genai.list_models():
-    if 'embedContent' in m.supported_generation_methods:
-        print(f"Model Name: {m.name}")
-
-
-#function for image captionining
-def gemini_pro_vision_response(prompt,image):
-    model_name = "gemini-2.5-flash" 
-    gemini_model = genai.GenerativeModel(model_name)
-
+def gemini_pro_vision_response(prompt, image):
+    model = genai.GenerativeModel("gemini-1.5-flash")
     if not prompt:
         prompt = "Tolong jelaskan gambar ini secara detail."
-    # Kirim prompt dan image (yang sudah berbentuk PIL Image)
-    response = gemini_model.generate_content([prompt, image])
     
+    response = model.generate_content([prompt, image])
     return response.text
-  
 
-#function to get embeddings for text
 def get_text_embedding(text):
-    # Update this to the exact name found in your list_models() output
-    model_name = "gemini-embedding-001" 
-    
+    # Gunakan prefix 'models/' agar tidak error 404
+    model_name = "models/text-embedding-004" 
     try:
         embedding_response = genai.embed_content(
             model=model_name,
@@ -56,12 +48,9 @@ def get_text_embedding(text):
         )
         return embedding_response['embedding']
     except Exception as e:
-        print(f"Error: {e}")
         return None
-    
-    #function to get respons from gemini LLM
+
 def get_gemini_response(user_prompt):
-    gemini_pro_model = genai.GenerativeModel("gemini-2.5-flash")
-    response = gemini_pro_model.generate_content(user_prompt)
-    result = response.text
-    return result
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(user_prompt)
+    return response.text
